@@ -1,0 +1,657 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<link rel="manifest" href="data:application/json,{'name':'מרכז בקרה','short_name':'בקרה','start_url':'/','display':'standalone','background_color':'%23e8edf2','theme_color':'%232563eb'}">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="בקרה">
+<meta name="theme-color" content="#2563eb">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>מרכז בקרה</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#e8edf2;--surface:#f1f5f9;--card:#f8fafc;--border:#cbd5e1;
+  --blue:#2563eb;--blue-bg:rgba(37,99,235,.1);
+  --green:#059669;--green-bg:rgba(5,150,105,.1);
+  --yellow:#d97706;--yellow-bg:rgba(217,119,6,.1);
+  --red:#dc2626;--red-bg:rgba(220,38,38,.1);
+  --purple:#7c3aed;--purple-bg:rgba(124,58,237,.1);
+  --text:#1e293b;--dim:#475569;--faint:#94a3b8;
+  --mono:'JetBrains Mono',monospace;
+}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+body{background:var(--bg);color:var(--text);font-family:'Heebo',sans-serif;min-height:100vh;padding-bottom:62px}
+.topbar{position:sticky;top:0;z-index:100;background:rgba(232,237,242,.96);backdrop-filter:blur(12px);border-bottom:1px solid var(--border);padding:10px 14px;display:flex;justify-content:space-between;align-items:center}
+.tb-title{font-size:14px;font-weight:800}.tb-title span{color:var(--blue)}
+.shift-pill{font-size:10px;padding:2px 8px;border-radius:10px;background:var(--blue-bg);color:var(--blue);border:1px solid rgba(59,130,246,.2);font-family:var(--mono);margin-top:3px;display:inline-block}
+.tb-clock{font-family:var(--mono);font-size:17px;font-weight:600;color:var(--blue);text-align:left}
+.tb-day{font-size:10px;color:var(--dim);font-family:var(--mono);text-align:left}
+.sync-row{display:flex;align-items:center;gap:4px;margin-top:2px}
+.sync-dot-el{width:6px;height:6px;border-radius:50%;background:var(--yellow);display:inline-block}
+.sync-txt{font-size:9px;color:var(--faint);font-family:var(--mono)}
+.page{display:none;padding:12px;max-width:640px;margin:0 auto;position:relative;z-index:1}
+.page.active{display:block}
+.sh{font-size:10px;font-weight:700;color:var(--faint);text-transform:uppercase;letter-spacing:1.5px;margin:14px 0 8px;display:flex;align-items:center;gap:6px}
+.sh::after{content:'';flex:1;height:1px;background:var(--border)}
+/* KPI */
+.kpi-row{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:12px}
+.kpi{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:10px 6px;text-align:center}
+.kpi-v{font-size:20px;font-weight:800;font-family:var(--mono);line-height:1}
+.kpi-l{font-size:9px;color:var(--dim);margin-top:3px;text-transform:uppercase;letter-spacing:.4px}
+.kpi.b .kpi-v{color:var(--blue)}.kpi.g .kpi-v{color:var(--green)}.kpi.y .kpi-v{color:var(--yellow)}.kpi.r .kpi-v{color:var(--red)}
+/* SCORE */
+.score-bar{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:10px 14px;margin-bottom:12px;display:flex;justify-content:space-between;align-items:center}
+/* LINE CARDS */
+.lc{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:13px;margin-bottom:10px;position:relative;overflow:hidden;transition:border-color .3s;box-shadow:0 1px 3px rgba(0,0,0,.06)}
+.lc::before{content:'';position:absolute;top:0;right:0;bottom:0;width:3px;border-radius:0 12px 12px 0}
+.lc.s0::before{background:var(--green)}
+.lc.s1::before{background:var(--blue)}
+.lc.s2{border-color:rgba(245,158,11,.3)}.lc.s2::before{background:var(--yellow)}
+.lc.s3{border-color:rgba(239,68,68,.35)}.lc.s3::before{background:var(--red)}
+.lc.s4::before{background:var(--faint)}
+.lc-top{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px}
+.lc-name{font-size:15px;font-weight:700}
+.lc-type{font-size:9px;padding:2px 7px;border-radius:8px;font-family:var(--mono);margin-top:2px;display:inline-block}
+.tv{background:var(--blue-bg);color:var(--blue);border:1px solid rgba(59,130,246,.2)}
+.ts{background:var(--yellow-bg);color:var(--yellow);border:1px solid rgba(245,158,11,.2)}
+.badge{font-size:11px;font-weight:700;padding:4px 9px;border-radius:7px;font-family:var(--mono)}
+.b0{background:var(--green-bg);color:var(--green);border:1px solid rgba(16,185,129,.2)}
+.b1{background:var(--blue-bg);color:var(--blue);border:1px solid rgba(59,130,246,.2)}
+.b2{background:var(--yellow-bg);color:var(--yellow);border:1px solid rgba(245,158,11,.2)}
+.b3{background:var(--red-bg);color:var(--red);border:1px solid rgba(239,68,68,.2)}
+.b4{background:rgba(71,85,105,.15);color:var(--faint);border:1px solid rgba(71,85,105,.2)}
+.lc-nums{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:10px}
+.ni{text-align:center}.ni-v{font-size:17px;font-weight:700;font-family:var(--mono)}.ni-l{font-size:9px;color:var(--dim);margin-top:1px}
+.pg-info{display:flex;justify-content:space-between;font-size:10px;color:var(--dim);margin-bottom:4px;font-family:var(--mono)}
+.pg-track{height:5px;background:var(--border);border-radius:3px;position:relative;margin-top:4px;margin-bottom:18px;overflow:visible}
+.pg-fill{height:100%;border-radius:3px;transition:width .8s ease;max-width:100%}
+.pg-fill{height:100%;border-radius:3px;transition:width .8s ease}
+.pg-mark{position:absolute;top:0;bottom:0;width:2px;background:rgba(255,255,255,.25);border-radius:1px}
+.fg{background:linear-gradient(90deg,#059669,#10b981)}.fy{background:linear-gradient(90deg,#d97706,#f59e0b)}.fr{background:linear-gradient(90deg,#dc2626,#ef4444)}.fb{background:linear-gradient(90deg,#2563eb,#3b82f6)}.fgr{background:var(--faint)}
+.lc-foot{display:flex;justify-content:space-between;align-items:center;font-size:10px;color:var(--faint);font-family:var(--mono);margin-top:6px}
+.tup{color:var(--green)}.tdn{color:var(--red)}.tfl{color:var(--faint)}
+.rr-box{margin-top:8px;padding:8px 10px;border-radius:8px}
+.rr-open{background:var(--red-bg);border:1px solid rgba(239,68,68,.25)}
+.rr-closed{background:var(--green-bg);border:1px solid rgba(16,185,129,.2)}
+/* FORMS */
+.ic{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:14px;margin-bottom:10px}
+.ic-title{font-size:13px;font-weight:700;margin-bottom:12px;display:flex;align-items:center;gap:8px}
+.igrid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.fld{display:flex;flex-direction:column;gap:4px}
+.fld label{font-size:10px;color:var(--dim);text-transform:uppercase;letter-spacing:.4px}
+.fld input,.fld select{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:9px 8px;color:var(--text);font-size:18px;font-family:var(--mono);font-weight:600;text-align:center;width:100%;transition:border-color .2s;-webkit-appearance:none}
+.fld select{font-size:13px;text-align:right;cursor:pointer}
+.fld input:focus,.fld select:focus{outline:none;border-color:var(--blue)}
+.fld input::placeholder{color:var(--faint);font-size:13px}
+.divider{height:1px;background:var(--border);margin:10px 0}
+.sub-lbl{font-size:11px;font-weight:700;margin-bottom:8px}
+.btn{width:100%;padding:13px;border:none;border-radius:10px;font-size:14px;font-weight:700;font-family:'Heebo',sans-serif;cursor:pointer;transition:opacity .2s,transform .1s;letter-spacing:.3px;display:flex;align-items:center;justify-content:center;gap:8px}
+.btn:active{opacity:.85;transform:scale(.98)}
+.btn-blue{background:linear-gradient(135deg,#1d4ed8,#3b82f6);color:#fff}
+.btn-green{background:linear-gradient(135deg,#059669,#10b981);color:#fff}
+.btn-red{background:linear-gradient(135deg,#dc2626,#ef4444);color:#fff}
+.btn-wa{background:linear-gradient(135deg,#16a34a,#22c55e);color:#fff}
+.btn-ghost{background:transparent;border:1px solid var(--border);color:var(--dim)}
+.hint{text-align:center;font-size:11px;color:var(--faint);margin-top:7px;line-height:1.6}
+.mbanner{background:linear-gradient(135deg,rgba(59,130,246,.1),rgba(16,185,129,.07));border:1px solid rgba(59,130,246,.2);border-radius:12px;padding:14px;margin-bottom:14px}
+.mbanner h3{font-size:14px;font-weight:700;margin-bottom:3px}
+.mbanner p{font-size:12px;color:var(--dim);line-height:1.5}
+/* FOLDERS */
+.folder{background:var(--card);border:1px solid var(--border);border-radius:12px;margin-bottom:10px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,.06)}
+.folder-hd{display:flex;justify-content:space-between;align-items:center;padding:14px 16px;cursor:pointer;font-size:14px;font-weight:700;transition:background .2s}
+.folder-hd:active{background:rgba(59,130,246,.06)}
+.folder-arr{font-size:11px;color:var(--faint)}
+.folder-body{padding:0 14px 14px;display:none}
+.folder-body.open{display:block}
+/* STOPS */
+.stop-active{background:var(--red-bg);border:1px solid rgba(239,68,68,.3);border-radius:10px;padding:12px 13px;margin-bottom:8px}
+.stop-hist-row{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:10px 13px;margin-bottom:7px;display:flex;justify-content:space-between;align-items:center}
+/* TABS */
+.atabs{display:flex;gap:6px;margin-bottom:12px;background:var(--card);border:1px solid var(--border);border-radius:10px;padding:4px}
+.atab{flex:1;padding:7px 4px;text-align:center;font-size:12px;font-weight:600;border-radius:7px;cursor:pointer;color:var(--dim);transition:all .2s;border:none;background:transparent;font-family:'Heebo',sans-serif}
+.atab.active{background:var(--blue);color:#fff}
+/* STAT BOXES */
+.sbox{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:12px;text-align:center}
+.sbox-v{font-size:20px;font-weight:800;font-family:var(--mono);color:var(--blue)}
+.sbox-l{font-size:10px;color:var(--dim);margin-top:3px}
+.sgrid2{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px}
+.sgrid3{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px}
+/* BN ROWS */
+.bn-row{display:flex;align-items:center;gap:10px;padding:10px 13px;background:var(--card);border:1px solid var(--border);border-radius:10px;margin-bottom:7px}
+.bn-name{flex:1;font-size:13px;font-weight:600}
+.bn-bar{flex:0 0 60px;height:4px;background:var(--border);border-radius:2px;overflow:hidden}
+.bn-fill{height:100%;border-radius:2px}
+.bn-pct{font-family:var(--mono);font-size:13px;font-weight:700;min-width:36px;text-align:left}
+.ph{color:var(--red)}.pm{color:var(--yellow)}.pl{color:var(--green)}.pg{color:var(--blue)}
+/* ALERTS */
+.al-item{display:flex;align-items:flex-start;gap:8px;padding:10px 12px;border-radius:10px;margin-bottom:7px}
+.al-item.r{background:var(--red-bg);border:1px solid rgba(239,68,68,.2)}
+.al-item.y{background:var(--yellow-bg);border:1px solid rgba(245,158,11,.2)}
+.al-item.g{background:var(--green-bg);border:1px solid rgba(16,185,129,.2)}
+.al-item.b{background:var(--blue-bg);border:1px solid rgba(59,130,246,.2)}
+.al-dot{width:7px;height:7px;border-radius:50%;margin-top:4px;flex-shrink:0}
+.al-item.r .al-dot{background:var(--red)}.al-item.y .al-dot{background:var(--yellow)}.al-item.g .al-dot{background:var(--green)}.al-item.b .al-dot{background:var(--blue)}
+.al-txt{flex:1;font-size:12px;line-height:1.5}
+.al-time{font-family:var(--mono);font-size:10px;color:var(--faint);white-space:nowrap}
+/* HISTORY */
+.hist-day{background:var(--card);border:1px solid var(--border);border-radius:10px;margin-bottom:10px;overflow:hidden}
+.hist-day-hd{padding:10px 14px;display:flex;justify-content:space-between;align-items:center;cursor:pointer;border-bottom:1px solid var(--border)}
+.hist-body{padding:12px 14px;display:none}
+.hist-body.open{display:block}
+.hist-row{display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid rgba(26,45,74,.5);font-size:13px}
+.hist-row:last-child{border-bottom:none}
+/* SUMMARY */
+.sum-line{display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid rgba(26,45,74,.5);font-size:13px}
+.sum-line:last-child{border-bottom:none}
+.score-circle{width:80px;height:80px;border-radius:50%;border:4px solid var(--border);display:flex;flex-direction:column;align-items:center;justify-content:center;margin:0 auto 8px}
+.score-circle.sg{border-color:var(--green)}.score-circle.sa{border-color:var(--blue)}.score-circle.sb{border-color:var(--yellow)}.score-circle.sc{border-color:var(--red)}
+/* NAV */
+.nav{position:fixed;bottom:0;left:0;right:0;z-index:200;background:rgba(232,237,242,.97);backdrop-filter:blur(10px);border-top:1px solid var(--border);display:flex;height:58px}
+.nb{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;cursor:pointer;font-size:9px;color:var(--faint);transition:color .2s;border:none;background:transparent;letter-spacing:.3px;position:relative}
+.nb.active{color:var(--blue)}
+.nb svg{width:20px;height:20px}
+.bdg{position:absolute;top:6px;right:calc(50% - 14px);width:16px;height:16px;background:var(--red);border-radius:50%;font-size:9px;font-weight:700;color:#fff;display:none;align-items:center;justify-content:center}
+/* MODALS */
+.modal-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,.8);z-index:500;align-items:center;justify-content:center;padding:20px}
+.modal-bg.open{display:flex}
+.modal{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:22px;width:100%;max-width:340px}
+.modal h3{font-size:15px;font-weight:700;margin-bottom:4px;text-align:center}
+.modal-sub{font-size:12px;color:var(--dim);text-align:center;margin-bottom:16px}
+.modal-row{display:flex;gap:8px;margin-top:14px}
+/* TOAST */
+.toast{position:fixed;top:66px;left:50%;transform:translateX(-50%) translateY(-16px);background:#ffffff;box-shadow:0 4px 12px rgba(0,0,0,.15);border:1px solid var(--green);color:var(--green);padding:8px 18px;border-radius:20px;font-size:12px;font-weight:700;opacity:0;transition:opacity .3s,transform .3s;z-index:300;white-space:nowrap;pointer-events:none}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
+.np-btn{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:16px;font-size:24px;font-weight:700;font-family:var(--mono);color:var(--text);cursor:pointer;transition:background .1s;width:100%}
+.np-btn:active{background:var(--blue-bg);border-color:rgba(37,99,235,.4)}
+.empty{text-align:center;padding:36px 20px;color:var(--faint);font-size:13px;line-height:2}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div>
+    <div class="tb-title">מרכז <span>בקרה</span></div>
+    <div class="shift-pill" id="shift-pill">...</div>
+  </div>
+  <div style="display:flex;align-items:center;gap:8px">
+    <select id="shift-selector" onchange="changeShift(this.value)" style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:5px 8px;color:var(--text);font-size:11px;font-family:'Heebo',sans-serif;cursor:pointer">
+      <option value="short">קצרה 5h</option>
+      <option value="regular" selected>רגילה 8.33h</option>
+      <option value="long">ארוכה 10.08h</option>
+    </select>
+    <button onclick="requireMgr(function(){goPage('mgr')})" style="padding:5px 12px;background:var(--blue-bg);border:1px solid rgba(37,99,235,.25);border-radius:8px;color:var(--blue);font-size:11px;font-weight:700;cursor:pointer;font-family:'Heebo',sans-serif">מנהל</button>
+    <button onclick="toggleTV()" style="padding:5px 10px;background:var(--surface);border:1px solid var(--border);border-radius:8px;color:var(--dim);font-size:11px;font-weight:700;cursor:pointer;font-family:'Heebo',sans-serif" title="TV Mode">TV</button>
+    <div style="text-align:left">
+      <div class="tb-clock" id="clock">--:--</div>
+      <div class="tb-day" id="day-lbl">--</div>
+      <div class="sync-row">
+        <span class="sync-dot-el" id="sync-dot"></span>
+        <span class="sync-txt" id="sync-status">מתחבר...</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<!-- DASHBOARD -->
+<div class="page active" id="page-dash">
+  <div id="active-stop-banner" style="display:none;background:var(--red-bg);border:1px solid rgba(220,38,38,.3);border-radius:10px;padding:10px 14px;margin-bottom:10px;cursor:pointer" onclick="goPage('stops')" onlongpress="showHelp('stops')" ontouchstart="this._t=setTimeout(function(){showHelp('stops')},600)" ontouchend="clearTimeout(this._t)">
+    <div style="display:flex;justify-content:space-between;align-items:center">
+      <div style="display:flex;align-items:center;gap:8px">
+        <span style="width:8px;height:8px;border-radius:50%;background:var(--red);display:inline-block;animation:blink 1s ease-in-out infinite"></span>
+        <span style="font-size:13px;font-weight:700;color:var(--red)" id="active-stop-txt">עצירה פעילה</span>
+      </div>
+      <span style="font-size:11px;color:var(--red)">לחץ לפרטים</span>
+    </div>
+  </div>
+
+  <div class="kpi-row">
+    <div class="kpi b"><div class="kpi-v" id="k-target">-</div><div class="kpi-l">יעד</div></div>
+    <div class="kpi g"><div class="kpi-v" id="k-ach">-</div><div class="kpi-l">בוצע סה"כ</div></div>
+    <div class="kpi y"><div class="kpi-v" id="k-rem">-</div><div class="kpi-l">נותר</div></div>
+    <div class="kpi" id="k-ach-c"><div class="kpi-v" id="k-eta" style="font-size:18px">-</div><div class="kpi-l">ETA סיום</div></div>
+  </div>
+  <button onclick="goPage('stops')" id="open-stop-btn" style="width:100%;padding:9px;background:var(--surface);border:1px solid var(--border);border-radius:9px;color:var(--dim);font-size:12px;font-weight:600;cursor:pointer;font-family:'Heebo',sans-serif;display:flex;align-items:center;justify-content:center;gap:6px;margin-bottom:8px">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="10" y1="15" x2="10" y2="9"/><line x1="14" y1="15" x2="14" y2="9"/></svg>
+    פתח עצירה
+  </button>
+
+  <div class="score-bar" id="score-bar" style="display:none">
+    <span style="font-size:12px;color:var(--dim)">ציון יומי</span>
+    <div style="display:flex;align-items:center;gap:8px">
+      <span id="score-num" style="font-size:22px;font-weight:800;font-family:var(--mono)">-</span>
+      <span id="score-lbl" style="font-size:11px;color:var(--dim)"></span>
+    </div>
+  </div>
+  <div id="pending-reminders" style="display:none"></div>
+  <div id="lines-list"><div class="empty">הזן יעדי בוקר בטאב מנהל</div></div>
+</div>
+
+<!-- STOPS -->
+<div class="page" id="page-stops">
+  <div class="sh">פתח עצירה חדשה</div>
+  <div class="ic">
+    <div class="igrid">
+      <div class="fld"><label>נתיב</label>
+        <select id="stop-line">
+          <option value="">-- בחר --</option>
+          <option>ליקוט</option><option>ערכות</option>
+          <option>יחידות הנעה</option><option>ספקי כוח</option>
+          <option>כבלים</option><option>אריזה</option>
+        </select>
+      </div>
+      <div class="fld"><label>סיבה</label>
+        <select id="stop-reason">
+          <option value="">-- בחר --</option>
+          <option>מחסן</option><option>ליקוט</option><option>סט-אפ</option>
+          <option>הנדסה</option><option>פיתוח</option><option>ייצור</option>
+          <option>איכות</option><option>IT</option>
+        </select>
+      </div>
+    </div>
+    <button class="btn btn-red" style="margin-top:10px" onclick="openStop()">פתח עצירה עכשיו</button>
+  </div>
+  <div class="sh" id="active-hd" style="display:none">עצירות פעילות</div>
+  <div id="active-stops"></div>
+  <div class="sh" style="display:flex;justify-content:space-between">
+    <span>היסטוריה</span>
+    <button onclick="requireMgr(function(){openEditStop('new')})" style="font-size:11px;padding:3px 10px;background:var(--blue-bg);border:1px solid rgba(59,130,246,.3);border-radius:6px;color:var(--blue);cursor:pointer;font-family:'Heebo',sans-serif">+ הוסף ידנית</button>
+  </div>
+  <div id="stop-hist"></div>
+</div>
+
+<!-- PACKING -->
+<div class="page" id="page-pack">
+  <div style="display:flex;gap:8px;margin-bottom:10px;align-items:center">
+    <input type="text" id="pallet-search" placeholder="חפש לפי הזמנה / לקוח / PK..." oninput="filterPallets()"
+      style="flex:1;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:9px 12px;color:var(--text);font-size:13px">
+    <button onclick="addPallet()" style="padding:9px 14px;background:var(--green-bg);border:1px solid rgba(16,185,129,.3);border-radius:8px;color:var(--green);cursor:pointer;font-size:13px;font-weight:700;white-space:nowrap">+ חדש</button>
+  </div>
+  <div class="sh" style="display:flex;justify-content:space-between">
+    <span>בקשת שיבוץ</span>
+    <span id="req-count-badge" style="font-size:11px;color:var(--yellow);font-family:var(--mono)"></span>
+  </div>
+  <div id="request-forms"></div>
+  <div id="pack-requests"></div>
+  <div class="sh">משטחים</div>
+  <div id="pallets-list"><div class="empty">לחץ + חדש להתחיל</div></div>
+</div>
+
+<!-- TV MODE -->
+<div id="tv-overlay" style="display:none;position:fixed;inset:0;background:var(--bg);z-index:1000;overflow:hidden;padding:20px">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;border-bottom:2px solid var(--border);padding-bottom:12px">
+    <div>
+      <div style="font-size:28px;font-weight:900;color:var(--text)">מרכז <span style="color:var(--blue)">בקרה</span></div>
+      <div style="font-size:14px;color:var(--dim);font-family:var(--mono)" id="tv-date"></div>
+    </div>
+    <div style="display:flex;align-items:center;gap:20px">
+      <div id="tv-score" style="font-size:36px;font-weight:900;font-family:var(--mono)">-</div>
+      <div style="font-size:14px;color:var(--dim)">ציון</div>
+      <div id="tv-clock" style="font-size:48px;font-weight:900;font-family:var(--mono);color:var(--blue)">--:--</div>
+      <button onclick="toggleTV()" style="padding:8px 16px;background:var(--red-bg);border:1px solid rgba(220,38,38,.3);border-radius:8px;color:var(--red);font-size:13px;font-weight:700;cursor:pointer">יציאה</button>
+    </div>
+  </div>
+  <div id="tv-lines" style="display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:14px"></div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+    <div id="tv-stops-box" style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:12px">
+      <div style="font-size:12px;font-weight:700;color:var(--dim);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">עצירות פעילות</div>
+      <div id="tv-stops"></div>
+    </div>
+    <div id="tv-mat-box" style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:12px">
+      <div style="font-size:12px;font-weight:700;color:var(--dim);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">הזמנות חומר</div>
+      <div id="tv-mat"></div>
+    </div>
+  </div>
+</div>
+
+<!-- MATERIAL -->
+<div class="page" id="page-mat">
+  <div class="sh">בקשת חומר חדשה</div>
+  <div class="ic">
+    <div class="igrid" style="margin-bottom:8px">
+      <div class="fld"><label>נתיב</label>
+        <select id="mat-line" style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:9px;color:var(--text);font-size:13px;width:100%;cursor:pointer">
+          <option value="pick">ליקוט</option>
+          <option value="kit">ערכות</option>
+          <option value="drive">יחידות הנעה</option>
+          <option value="spk">ספקי כוח</option>
+          <option value="cable">כבלים</option>
+        </select>
+      </div>
+      <div class="fld"><label>מק"ט</label>
+        <div style="position:relative"><input type="text" id="mat-sku" placeholder="99912345" oninput="showSkuSuggestions()" autocomplete="off" style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:9px;color:var(--text);font-size:14px;font-family:var(--mono);width:100%"><div id="sku-suggestions" style="display:none;position:absolute;top:100%;right:0;left:0;background:var(--card);border:1px solid var(--border);border-radius:8px;z-index:50;box-shadow:0 4px 12px rgba(0,0,0,.1)"></div></div>
+      </div>
+    </div>
+    <div class="igrid" style="margin-bottom:8px">
+      <div class="fld"><label>כמות</label>
+        <input type="number" id="mat-qty" placeholder="0" inputmode="numeric" style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:9px;color:var(--text);font-size:20px;font-family:var(--mono);text-align:center;width:100%">
+      </div>
+      <div class="fld"><label>הערה</label>
+        <input type="text" id="mat-note" placeholder="דחוף / הסבר..." style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:9px;color:var(--text);font-size:13px;width:100%">
+      </div>
+    </div>
+    <button onclick="submitMaterialRequest()" class="btn btn-blue">שלח בקשת חומר</button>
+  </div>
+  <div class="sh" style="display:flex;justify-content:space-between"><span>מצב בקשות</span><button onclick="requireMgr(function(){document.getElementById('sku-manager').style.display=document.getElementById('sku-manager').style.display==='none'?'block':'none';renderSkuManager();})" style="font-size:10px;padding:2px 8px;background:var(--surface);border:1px solid var(--border);border-radius:5px;color:var(--dim);cursor:pointer">נהל מק"טים</button></div><div id="sku-manager" style="display:none;background:var(--card);border:1px solid var(--border);border-radius:10px;padding:12px;margin-bottom:10px"><div style="font-size:11px;font-weight:700;color:var(--dim);margin-bottom:8px">מק"טים שמורים</div><div id="sku-manager-list"></div></div><div class="sh">מצב בקשות</div>
+  <div id="mat-list"><div class="empty">אין בקשות פעילות</div></div>
+</div>
+
+<!-- MANAGER -->
+<div class="page" id="page-mgr">
+
+  <div class="folder" id="f-workplan">
+    <div class="folder-hd" onclick="toggleF('workplan')"><span>טען תוכנית עבודה</span><span class="folder-arr" id="fa-workplan">&#9654;</span></div>
+    <div class="folder-body" id="fb-workplan">
+      <div style="font-size:12px;color:var(--dim);margin-bottom:12px;line-height:1.6">העלה קובץ Excel של תוכנית העבודה. המערכת תקרא את היעדים לפי נתיב ותמלא אוטומטית.</div>
+      <input type="file" id="wp-file" accept=".xlsx" style="display:none" onchange="loadWorkPlan(event)">
+      <button onclick="document.getElementById('wp-file').click()" class="btn btn-blue" style="margin-bottom:8px">בחר קובץ Excel</button>
+      <div id="wp-status" style="font-size:12px;color:var(--dim);text-align:center;margin-bottom:8px"></div>
+      <div id="wp-preview" style="display:none">
+        <div id="wp-results"></div>
+        <button onclick="applyWorkPlan()" class="btn btn-green" style="margin-top:8px">החל יעדים על הדשבורד</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="folder" id="f-productivity">
+    <div class="folder-hd" onclick="toggleF('productivity')"><span>פריון עובדים</span><span class="folder-arr" id="fa-productivity">&#9654;</span></div>
+    <div class="folder-body" id="fb-productivity">
+      <div style="font-size:11px;color:var(--dim);margin-bottom:10px;line-height:1.6">ערוך מספר עובדים לכל נתיב. הפריון מחושב אוטומטית.</div>
+      <div id="mgr-productivity"><div class="empty">ממתין לעדכונים...</div></div>
+    </div>
+  </div>
+
+  <div class="folder" id="f-analysis">
+    <div class="folder-hd" onclick="toggleF('analysis')"><span>ניתוח ביצוע</span><span class="folder-arr" id="fa-analysis">&#9654;</span></div>
+    <div class="folder-body" id="fb-analysis">
+      <div class="sh" style="margin-top:0">דירוג נתיבים</div>
+      <div id="bn-list"><div class="empty">ממתין לנתונים...</div></div>
+      <div class="sh">סיכום משמרת</div>
+      <div class="sgrid2">
+        <div class="sbox"><div class="sbox-v" id="sa-done">-</div><div class="sbox-l">הושלם</div></div>
+        <div class="sbox"><div class="sbox-v" id="sa-gap">-</div><div class="sbox-l">פער שעתי</div></div>
+        <div class="sbox"><div class="sbox-v" id="sa-rate">-</div><div class="sbox-l">יח'/שעה</div></div>
+        <div class="sbox"><div class="sbox-v" id="sa-eta">-</div><div class="sbox-l">ETA סיום</div></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="folder" id="f-daily">
+    <div class="folder-hd" onclick="toggleF('daily')"><span>סיכום יומי לשליחה</span><span class="folder-arr" id="fa-daily">&#9654;</span></div>
+    <div class="folder-body" id="fb-daily">
+      <button class="btn btn-green" onclick="genDailySummary()" style="margin-bottom:8px">צור סיכום יומי</button>
+      <div id="daily-sum-box" style="display:none">
+        <textarea id="daily-sum-text" rows="10" readonly style="width:100%;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:10px;color:var(--text);font-size:11px;font-family:var(--mono);line-height:1.6;resize:none;margin-bottom:8px"></textarea>
+        <button class="btn btn-wa" id="wa-daily-btn" style="display:none" onclick="shareDailySummaryWA()">שתף ב-WhatsApp</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="folder" id="f-reset">
+    <div class="folder-hd" onclick="toggleF('reset')"><span>איפוס ומחיקה</span><span class="folder-arr" id="fa-reset">&#9654;</span></div>
+    <div class="folder-body" id="fb-reset">
+      <div style="font-size:12px;color:var(--dim);margin-bottom:12px;line-height:1.6">שמור את היום הנוכחי להיסטוריה לפני איפוס.</div>
+      <button class="btn btn-ghost" style="margin-bottom:8px" onclick="manualSaveHistory()">שמור יום נוכחי להיסטוריה</button>
+      <button class="btn btn-ghost" style="margin-bottom:8px;border-color:rgba(245,158,11,.4);color:var(--yellow)" onclick="confirmResetDay()">איפוס יום — התחל משמרת חדשה</button>
+      <button class="btn btn-ghost" style="margin-bottom:8px;border-color:rgba(239,68,68,.4);color:var(--red)" onclick="confirmDeleteSpecific()">מחק נתון ספציפי</button>
+    </div>
+  </div>
+
+  <div class="folder" id="f-histweekly">
+    <div class="folder-hd" onclick="toggleF('histweekly')"><span>היסטוריה ושבועי</span><span class="folder-arr" id="fa-histweekly">&#9654;</span></div>
+    <div class="folder-body" id="fb-histweekly">
+      <div style="font-size:11px;font-weight:700;color:var(--blue);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">דוח שבועי</div>
+    <div class="folder-hd" onclick="toggleF('history')"><span>היסטוריה</span><span class="folder-arr" id="fa-history">&#9654;</span></div>
+    <div class="folder-body" id="fb-history">
+      <div class="atabs">
+        <button class="atab active" id="ht-week" onclick="switchHist('week')">שבועי</button>
+        <button class="atab" id="ht-month" onclick="switchHist('month')">חודשי</button>
+      </div>
+      <div id="hist-content"><div class="empty">אין היסטוריה שמורה עדיין
+      <div style="font-size:11px;font-weight:700;color:var(--blue);text-transform:uppercase;letter-spacing:.5px;margin:12px 0 8px">היסטוריה</div>
+    <div class="folder-hd" onclick="toggleF('weekly')"><span>דוח שבועי</span><span class="folder-arr" id="fa-weekly">&#9654;</span></div>
+    <div class="folder-body" id="fb-weekly">
+      <div id="weekly-content"><div class="empty">לחץ לטעינת הדוח
+    </div>
+  </div>
+  </div>
+  </div>
+
+    <div class="folder" id="f-dailyanalysis">
+    <div class="folder-hd" onclick="toggleF('dailyanalysis')"><span>ניתוח יומי</span><span class="folder-arr" id="fa-dailyanalysis">&#9654;</span></div>
+    <div class="folder-body" id="fb-dailyanalysis">
+      <div style="font-size:11px;font-weight:700;color:var(--blue);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;cursor:pointer" onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display==='none'?'block':'none'">סדר עדיפויות בוקר ▾</div>
+      <div id="morning-priorities"><div class="empty">ממתין...</div></div>
+      <div style="font-size:11px;font-weight:700;color:var(--blue);text-transform:uppercase;letter-spacing:.5px;margin:10px 0 8px;cursor:pointer" onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display==='none'?'block':'none'">פיגור מצטבר ▾</div>
+      <div id="cumulative-gap"><div class="empty">ממתין...</div></div>
+      <div style="font-size:11px;font-weight:700;color:var(--blue);text-transform:uppercase;letter-spacing:.5px;margin:10px 0 8px;cursor:pointer" onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display==='none'?'block':'none'">דפוסים חוזרים ▾</div>
+      <div id="recurring-patterns"><div class="empty">ממתין...</div></div>
+      <div style="font-size:11px;font-weight:700;color:var(--blue);text-transform:uppercase;letter-spacing:.5px;margin:10px 0 8px;cursor:pointer" onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display==='none'?'block':'none'">ניצול כ"א ▾</div>
+      <div id="workforce-focus"><div class="empty">ממתין...</div></div>
+    </div>
+  </div>
+  </div>
+
+    <div class="folder" id="f-reports">
+    <div class="folder-hd" onclick="toggleF('reports')"><span>דוחות</span><span class="folder-arr" id="fa-reports">&#9654;</span></div>
+    <div class="folder-body" id="fb-reports">
+      <div style="font-size:11px;font-weight:700;color:var(--blue);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;cursor:pointer" onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display==='none'?'block':'none'">גרף ביצוע מול תכנון ▾</div>
+      <div id="perf-chart"><div class="empty">ממתין...</div></div>
+      <div style="font-size:11px;font-weight:700;color:var(--blue);text-transform:uppercase;letter-spacing:.5px;margin:10px 0 8px;cursor:pointer" onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display==='none'?'block':'none'">שורות אדומות ▾</div>
+      <div id="red-rows-report"><div class="empty">ממתין...</div></div>
+      <div style="font-size:11px;font-weight:700;color:var(--blue);text-transform:uppercase;letter-spacing:.5px;margin:10px 0 8px;cursor:pointer" onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display==='none'?'block':'none'">סיכום עצירות ▾</div>
+      <div id="stops-summary"><div class="empty">ממתין...</div></div>
+    </div>
+  </div>
+  </div>
+
+  <div class="folder" id="f-mathist">
+    <div class="folder-hd" onclick="toggleF('mathist')"><span>היסטוריית הזמנות חומר</span><span class="folder-arr" id="fa-mathist">&#9654;</span></div>
+    <div class="folder-body" id="fb-mathist">
+      <div id="mat-history-mgr"><div class="empty">אין היסטוריה</div></div>
+    </div>
+  </div>
+  
+
+  <button class="btn btn-ghost" style="margin-top:12px" onclick="isManager=false;showT('יצאת ממצב מנהל','g')">יציאה ממצב מנהל</button>
+</div>
+
+</div>
+</div>
+
+<!-- ALERTS -->
+<div class="page" id="page-alerts">
+  <div class="sh">התראות</div>
+  <div id="alerts-list"><div class="empty">אין התראות</div></div>
+</div>
+
+<!-- NAV -->
+<nav class="nav">
+  <button class="nb active" id="nb-dash" onclick="goPage('dash')" onlongpress="showHelp('dash')" ontouchstart="this._t=setTimeout(function(){showHelp('dash')},600)" ontouchend="clearTimeout(this._t)">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+    דשבורד
+  </button>
+  <button class="nb" id="nb-mat" onclick="goPage('mat')" onlongpress="showHelp('mat')" ontouchstart="this._t=setTimeout(function(){showHelp('mat')},600)" ontouchend="clearTimeout(this._t)">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 7H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2z"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>
+    חומר
+    <span class="bdg" id="mat-bdg">0</span>
+  </button>
+  <button class="nb" id="nb-stops" onclick="goPage('stops')">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="10" y1="15" x2="10" y2="9"/><line x1="14" y1="15" x2="14" y2="9"/></svg>
+    עצירות
+    <span class="bdg" id="stop-bdg">0</span>
+  </button>
+  <button class="nb" id="nb-pack" onclick="goPage('pack')" onlongpress="showHelp('pack')" ontouchstart="this._t=setTimeout(function(){showHelp('pack')},600)" ontouchend="clearTimeout(this._t)">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
+    אריזה
+  </button>
+  <button class="nb" id="nb-alerts" onclick="goPage('alerts')" onlongpress="showHelp('alerts')" ontouchstart="this._t=setTimeout(function(){showHelp('alerts')},600)" ontouchend="clearTimeout(this._t)">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+    התראות
+    <span class="bdg" id="alert-bdg">0</span>
+  </button>
+</nav>
+
+
+<!-- NUMPAD MODAL -->
+<div class="modal-bg" id="np-modal">
+  <div class="modal" style="max-width:320px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+      <h3 id="np-title" style="margin:0">עדכון</h3>
+      <button onclick="npEdit()" style="font-size:11px;padding:3px 10px;background:var(--yellow-bg);border:1px solid rgba(217,119,6,.3);border-radius:6px;color:var(--yellow);cursor:pointer">ערוך אחרון</button>
+    </div>
+    <div id="np-target" style="font-size:11px;color:var(--dim);margin-bottom:10px;font-family:var(--mono)"></div>
+    <input type="hidden" id="np-lid">
+    <!-- Display -->
+    <div id="np-display" style="width:100%;background:var(--surface);border:2px solid var(--blue);border-radius:10px;padding:14px;color:var(--text);font-size:44px;font-family:var(--mono);font-weight:800;text-align:center;min-height:70px;margin-bottom:10px;letter-spacing:4px">
+    </div>
+    <!-- Numpad -->
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:10px">
+      <button onclick="npKey('7')" class="np-btn">7</button>
+      <button onclick="npKey('8')" class="np-btn">8</button>
+      <button onclick="npKey('9')" class="np-btn">9</button>
+      <button onclick="npKey('4')" class="np-btn">4</button>
+      <button onclick="npKey('5')" class="np-btn">5</button>
+      <button onclick="npKey('6')" class="np-btn">6</button>
+      <button onclick="npKey('1')" class="np-btn">1</button>
+      <button onclick="npKey('2')" class="np-btn">2</button>
+      <button onclick="npKey('3')" class="np-btn">3</button>
+      <button onclick="npKey('clr')" class="np-btn" style="color:var(--red)">C</button>
+      <button onclick="npKey('0')" class="np-btn">0</button>
+      <button onclick="npKey('del')" class="np-btn" style="color:var(--yellow)">&#9003;</button>
+    </div>
+    <!-- Reason -->
+    <select id="np-reason" style="width:100%;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:9px;color:var(--text);font-size:13px;margin-bottom:10px;cursor:pointer">
+      <option value="">סיבת עיכוב (לא חובה)</option>
+      <option>מחסן</option><option>ליקוט</option><option>סט-אפ</option>
+      <option>הנדסה</option><option>פיתוח</option><option>ייצור</option>
+      <option>איכות</option><option>IT</option>
+    </select>
+    <div class="modal-row">
+      <button class="btn btn-ghost" style="flex:1;padding:11px" onclick="document.getElementById('np-modal').classList.remove('open')">ביטול</button>
+      <button class="btn btn-blue" style="flex:2;padding:11px;font-size:16px" onclick="npSave()">שמור</button>
+    </div>
+  </div>
+</div>
+
+
+<!-- DELETE SPECIFIC MODAL -->
+<div class="modal-bg" id="del-specific-modal">
+  <div class="modal" style="max-width:420px;max-height:80vh;overflow-y:auto">
+    <h3>מחק נתון ספציפי</h3>
+    <div class="modal-sub">בחר מה למחוק</div>
+    <div id="del-options"></div>
+    <button class="btn btn-ghost" style="margin-top:12px" onclick="document.getElementById('del-specific-modal').classList.remove('open')">סגור</button>
+  </div>
+</div>
+
+<!-- VALIDATION MODAL -->
+<div class="modal-bg" id="val-modal">
+  <div class="modal">
+    <h3>אימות עדכון</h3>
+    <div class="modal-sub" id="val-line-name"></div>
+    <div style="background:var(--yellow-bg);border:1px solid rgba(217,119,6,.3);border-radius:10px;padding:14px;margin:12px 0;text-align:center">
+      <div style="font-size:13px;color:var(--text);margin-bottom:4px">הזנת</div>
+      <div style="font-size:24px;font-weight:800;font-family:var(--mono);color:var(--yellow)" id="val-amount"></div>
+      <div style="font-size:12px;color:var(--dim);margin-top:4px">האם זה נכון?</div>
+    </div>
+    <div class="modal-row">
+      <button class="btn btn-ghost" style="flex:1;padding:11px" onclick="pendingOverride=null;document.getElementById('val-modal').classList.remove('open')">תקן</button>
+      <button class="btn" style="flex:1;padding:11px;background:var(--yellow-bg);border:1px solid rgba(217,119,6,.3);color:var(--yellow);font-weight:700" onclick="confirmAdvance()">כן, קידום עבודה</button>
+    </div>
+  </div>
+</div>
+
+<!-- DELAY MODAL -->
+<div class="modal-bg" id="delay-modal">
+  <div class="modal">
+    <h3>סיבת עיכוב</h3>
+    <div class="modal-sub">חובה לסמן סיבה</div>
+    <input type="hidden" id="delay-modal-id">
+    <select id="delay-reason-select" style="width:100%;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:12px;color:var(--text);font-size:14px;margin-bottom:14px;cursor:pointer">
+      <option value="">-- בחר סיבה --</option>
+      <option>מחסן</option>
+      <option>אין מלאי</option>
+      <option>ביקורת קבלה</option>
+      <option>לא הוזמן בזמן</option>
+    </select>
+    <div class="modal-row">
+      <button class="btn btn-ghost" style="flex:1;padding:11px" onclick="document.getElementById('delay-modal').classList.remove('open')">ביטול</button>
+      <button class="btn btn-red" style="flex:1;padding:11px" onclick="saveDelayReason()">שמור עיכוב</button>
+    </div>
+  </div>
+</div>
+
+<!-- PIN MODAL -->
+<div class="modal-bg" id="pin-modal">
+  <div class="modal">
+    <h3>כניסת מנהל</h3>
+    <div class="modal-sub">הזן קוד PIN</div>
+    <input type="password" id="pin-in" inputmode="numeric" maxlength="4"
+      style="width:100%;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:12px;color:var(--text);font-size:26px;font-family:var(--mono);text-align:center;letter-spacing:10px"
+      placeholder="..." onkeyup="if(event.key==='Enter')checkPin()">
+    <div id="pin-err" style="font-size:12px;color:var(--red);text-align:center;margin-top:8px;display:none">קוד שגוי</div>
+    <div class="modal-row">
+      <button class="btn btn-ghost" style="flex:1;padding:11px" onclick="closePinModal()">ביטול</button>
+      <button class="btn btn-blue" style="flex:1;padding:11px" onclick="checkPin()">כניסה</button>
+    </div>
+  </div>
+</div>
+
+<!-- EDIT STOP MODAL -->
+<div class="modal-bg" id="edit-stop-modal">
+  <div class="modal">
+    <h3>עריכת עצירה</h3>
+    <input type="hidden" id="es-id">
+    <div class="igrid" style="margin-bottom:10px">
+      <div class="fld"><label>נתיב</label>
+        <select id="es-line" style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:9px;color:var(--text);font-size:13px;width:100%">
+          <option>ליקוט</option><option>ערכות</option><option>יחידות הנעה</option>
+          <option>ספקי כוח</option><option>כבלים</option><option>אריזה</option>
+        </select>
+      </div>
+      <div class="fld"><label>סיבה</label>
+        <select id="es-reason" style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:9px;color:var(--text);font-size:13px;width:100%">
+          <option>מחסן</option><option>ליקוט</option><option>סט-אפ</option>
+          <option>הנדסה</option><option>פיתוח</option><option>ייצור</option>
+          <option>איכות</option><option>IT</option>
+        </select>
+      </div>
+    </div>
+    <div class="igrid" style="margin-bottom:6px">
+      <div class="fld"><label>פתיחה</label>
+        <input type="text" id="es-start" placeholder="08:30" oninput="calcEsDur()"
+          style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:9px;color:var(--text);font-size:16px;font-family:var(--mono);text-align:center;width:100%">
+      </div>
+      <div class="fld"><label>סגירה</label>
+        <input type="text" id="es-end" placeholder="08:55" oninput="calcEsDur()"
+          style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:9px;color:var(--text);font-size:16px;font-family:var(--mono);text-align:center;width:100%">
+      </div>
+    </div>
+    <div id="es-dur" style="text-align:center;font-size:11px;color:var(--dim);margin-bottom:12px"></div>
+    <div class="modal-row">
+      <button class="btn btn-ghost" style="flex:0 0 44px;padding:10px 0;font-size:16px" onclick="deleteStop()">🗑</button>
+      <button class="btn btn-ghost" style="flex:1;padding:10px" onclick="closeEditStop()">ביטול</button>
+      <button class="btn btn-green" style="flex:1;padding:10px" onclick="saveEditStop()">שמור</button>
+    </div>
+  </div>
+</div>
+
+<script src="app.js"></script>
+<script>
+if('serviceWorker' in navigator){
+  navigator.serviceWorker.register('/sw.js').then(function(){
+    console.log('SW registered');
+  }).catch(function(e){console.log('SW failed',e);});
+}
+</script>
+
+</body>
+</html>
