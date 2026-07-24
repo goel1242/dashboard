@@ -1,0 +1,19 @@
+{
+  "name": "מרכז בקרה",
+  "short_name": "מרכז בקרה",
+  "description": "מרכז בקרה לייצור, אריזה וסט-אפ",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0B1730",
+  "theme_color": "#1E3A5F",
+  "dir": "rtl",
+  "lang": "he",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "maskable" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
